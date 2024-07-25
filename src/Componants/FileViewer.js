@@ -1,129 +1,84 @@
-// import React, { useEffect, useState } from "react";
-// import axios from "axios";
-
-// const FileViewer = () => {
-//   const [fileUrl, setFileUrl] = useState("");
-
-//   useEffect(() => {
-//     // Fetch course data from backend
-//     axios
-//       .get("http://localhost:5500/api/courses")
-//       .then((response) => {
-//         console.log("Response from backend:", response.data); // Debug log
-//         if (response.data && response.data.length > 0) {
-//           const course = response.data[0];
-//           console.log("Course data:", course); // Debug log
-//           if (course.videoUrl) {
-//             setFileUrl(`http://localhost:5500${course.videoUrl}`);
-//           } else {
-//             console.error("videoUrl is not defined in the course data");
-//           }
-//         } else {
-//           console.error("No courses found in the response");
-//         }
-//       })
-//       .catch((error) => {
-//         console.error("Error fetching courses:", error);
-//       });
-//   }, []);
-
-//   return (
-//     <div>
-//       <h1>Here is the iframe for playing the video</h1>
-//       {fileUrl ? (
-//         <iframe
-//           src={fileUrl}
-//           width="600"
-//           height="400"
-//           title="SCORM Content"
-//         ></iframe>
-//       ) : (
-//         <p>Loading...</p>
-//       )}
-//     </div>
-//   );
-// };
-
-// export default FileViewer;
-
-
-
-
-import React, { useEffect, useState, useRef } from 'react';
-import axios from 'axios';
+import React, { useEffect, useState, useRef } from "react";
+import axios from "axios";
+import pipwerks from "pipwerks-scorm-api-wrapper";
 
 const FileViewer = () => {
-  const [fileUrl, setFileUrl] = useState('');
+  const [fileUrl, setFileUrl] = useState("");
   const iframeRef = useRef(null);
 
   useEffect(() => {
-    // Fetch course data from backend
+    // Fetch course data and set the file URL
     axios
-      .get('http://localhost:5500/api/courses')
+      .get("http://localhost:5500/api/courses")
       .then((response) => {
-        console.log('Response from backend:', response.data); // Debug log
         if (response.data && response.data.length > 0) {
           const course = response.data[0];
-          console.log('Course data:', course); // Debug log
           if (course.videoUrl) {
             setFileUrl(`http://localhost:5500${course.videoUrl}`);
           } else {
-            console.error('videoUrl is not defined in the course data');
+            console.error("videoUrl is not defined in the course data");
           }
         } else {
-          console.error('No courses found in the response');
+          console.error("No courses found in the response");
         }
       })
       .catch((error) => {
-        console.error('Error fetching courses:', error);
+        console.error("Error fetching courses:", error);
       });
   }, []);
 
   useEffect(() => {
     const handleLoad = () => {
-      const iframeWindow = iframeRef.current.contentWindow;
+      console.log("IFrame loaded, attempting to find SCORM API...");
 
-      if (iframeWindow) {
-        // Load SCORM API wrapper script in the iframe
-        const script = document.createElement('script');
-        script.src = '/js/scorm-api-wrapper.js'; // Adjust the path if needed
-        iframeWindow.document.body.appendChild(script);
+      pipwerks.SCORM.version = "1.2"; // or "2004"
 
-        script.onload = () => {
-          // Initialize SCORM API in the iframe
-          const scorm = iframeWindow.pipwerks.SCORM;
-          scorm.version = '1.2'; // or '2004'
+      const initialized = pipwerks.SCORM.init();
 
-          if (scorm.init()) {
-            console.log('SCORM initialized');
-            
-            // Fetch SCORM data
-            const lessonStatus = scorm.get('cmi.core.lesson_status');
-            console.log('Lesson status:', lessonStatus);
-            // Update state or perform other actions as needed
-          } else {
-            console.error('SCORM initialization failed');
-          }
-        };
+      if (initialized) {
+        console.log("SCORM initialized successfully");
+
+        const setStatus = pipwerks.SCORM.set(
+          "cmi.core.lesson_status",
+          "completed"
+        );
+        if (!setStatus) {
+          console.error(
+            "Failed to set SCORM value",
+            pipwerks.SCORM.debug.getCode(),
+            pipwerks.SCORM.debug.getInfo()
+          );
+        }
+
+        const lessonStatus = pipwerks.SCORM.get("cmi.core.lesson_status");
+        console.log("Lesson status:", lessonStatus);
+      } else {
+        console.error(
+          "SCORM initialization failed",
+          pipwerks.SCORM.debug.getCode(),
+          pipwerks.SCORM.debug.getInfo()
+        );
       }
+
+      return () => {
+        pipwerks.SCORM.quit();
+      };
     };
 
-    // Check if the iframe is loaded
     if (iframeRef.current) {
-      iframeRef.current.addEventListener('load', handleLoad);
+      iframeRef.current.addEventListener("load", handleLoad);
     }
 
     return () => {
-      // Cleanup event listener
       if (iframeRef.current) {
-        iframeRef.current.removeEventListener('load', handleLoad);
+        iframeRef.current.removeEventListener("load", handleLoad);
       }
     };
   }, [fileUrl]);
 
   return (
     <div>
-      <h1>Here is the iframe for playing the video</h1>
+      <h1>Here is the iframe for playing the SCORM content</h1>
       {fileUrl ? (
         <iframe
           ref={iframeRef}
