@@ -1,113 +1,76 @@
-(function () {
-  // Define the SCORM namespace if not already defined
-  window.pipwerks = window.pipwerks || {};
-  window.pipwerks.SCORM = window.pipwerks.SCORM || {};
+(function(window) {
+  var SCORM = {
+    API: null,
 
-  // SCORM 1.2 and 2004 API implementation
-  var scorm = window.pipwerks.SCORM;
-
-  // SCORM API initialization
-  scorm.version = "1.2"; // Set to '2004' if using SCORM 2004
-
-  scorm.init = function () {
-    try {
-      // Find SCORM API
-      var api = findAPI(window);
-      if (api) {
-        scorm.api = api;
+    // Initialize SCORM
+    initialize: function() {
+      if (this.API) {
+        console.log("SCORM already initialized.");
         return true;
-      } else {
-        console.error("SCORM API not found.");
-        return false;
       }
-    } catch (e) {
-      console.error("Error initializing SCORM:", e);
-      return false;
-    }
-  };
 
-  scorm.get = function (name) {
-    try {
-      if (scorm.api) {
-        var value = scorm.api.GetValue(name);
-        console.log("SCORM GET", name, ":", value);
-        return value;
-      } else {
-        console.error("SCORM API not initialized.");
-        return "";
+      // Locate SCORM API
+      var api = this.findAPI(window);
+      if (api) {
+        this.API = api;
+        return api.LMSInitialize("");
       }
-    } catch (e) {
-      console.error("Error getting SCORM value:", e);
+      
+      console.error("SCORM API not found.");
+      return false;
+    },
+
+    // Terminate SCORM
+    terminate: function() {
+      if (this.API) {
+        return this.API.LMSFinish("");
+      }
+      console.error("SCORM API not initialized.");
+      return false;
+    },
+
+    // Get value from SCORM
+    getValue: function(name) {
+      if (this.API) {
+        return this.API.LMSGetValue(name);
+      }
+      console.error("SCORM API not initialized.");
       return "";
-    }
-  };
+    },
 
-  scorm.set = function (name, value) {
-    try {
-      if (scorm.api) {
-        var success = scorm.api.SetValue(name, value);
-        if (success) {
-          console.log("SCORM SET", name, ":", value);
-        } else {
-          console.error("Error setting SCORM value.");
-        }
-        return success;
-      } else {
-        console.error("SCORM API not initialized.");
-        return false;
+    // Set value to SCORM
+    setValue: function(name, value) {
+      if (this.API) {
+        return this.API.LMSSetValue(name, value);
       }
-    } catch (e) {
-      console.error("Error setting SCORM value:", e);
+      console.error("SCORM API not initialized.");
       return false;
-    }
-  };
+    },
 
-  scorm.save = function () {
-    try {
-      if (scorm.api) {
-        var success = scorm.api.Commit("");
-        if (success) {
-          console.log("SCORM data saved.");
-        } else {
-          console.error("Error saving SCORM data.");
-        }
-        return success;
-      } else {
-        console.error("SCORM API not initialized.");
-        return false;
+    // Commit values to SCORM
+    commit: function() {
+      if (this.API) {
+        return this.API.LMSCommit("");
       }
-    } catch (e) {
-      console.error("Error saving SCORM data:", e);
+      console.error("SCORM API not initialized.");
       return false;
-    }
-  };
+    },
 
-  scorm.quit = function () {
-    try {
-      if (scorm.api) {
-        var success = scorm.api.Terminate("");
-        if (success) {
-          console.log("SCORM session terminated.");
+    // Find SCORM API
+    findAPI: function(win) {
+      var api = null;
+      while (win && !api) {
+        if (win.API) {
+          api = win.API;
+        } else if (win.parent && win.parent !== win) {
+          win = win.parent;
         } else {
-          console.error("Error terminating SCORM session.");
+          win = win.parent;
         }
-        return success;
-      } else {
-        console.error("SCORM API not initialized.");
-        return false;
       }
-    } catch (e) {
-      console.error("Error terminating SCORM session:", e);
-      return false;
+      return api;
     }
   };
 
-  // Function to find the SCORM API
-  function findAPI(win) {
-    if (win.API) return win.API;
-    if (win.API_1484_11) return win.API_1484_11;
-    if (win.parent) return findAPI(win.parent);
-    if (win.opener) return findAPI(win.opener);
-    return null;
-  }
-})();
+  window.SCORM = SCORM;
+})(window);

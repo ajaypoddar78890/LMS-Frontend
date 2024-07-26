@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
-import pipwerks from "pipwerks-scorm-api-wrapper";
 
 const FileViewer = () => {
   const [fileUrl, setFileUrl] = useState("");
@@ -28,50 +27,62 @@ const FileViewer = () => {
   }, []);
 
   useEffect(() => {
-    const handleLoad = () => {
-      console.log("IFrame loaded, attempting to find SCORM API...");
-
-      pipwerks.SCORM.version = "1.2"; // or "2004"
-
-      const initialized = pipwerks.SCORM.init();
-
-      if (initialized) {
-        console.log("SCORM initialized successfully");
-
-        const setStatus = pipwerks.SCORM.set(
-          "cmi.core.lesson_status",
-          "completed"
-        );
-        if (!setStatus) {
-          console.error(
-            "Failed to set SCORM value",
-            pipwerks.SCORM.debug.getCode(),
-            pipwerks.SCORM.debug.getInfo()
-          );
-        }
-
-        const lessonStatus = pipwerks.SCORM.get("cmi.core.lesson_status");
-        console.log("Lesson status:", lessonStatus);
-      } else {
-        console.error(
-          "SCORM initialization failed",
-          pipwerks.SCORM.debug.getCode(),
-          pipwerks.SCORM.debug.getInfo()
-        );
-      }
-
-      return () => {
-        pipwerks.SCORM.quit();
-      };
+    // Function to load the SCORM API script
+    const loadScormScript = () => {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "/scorm-api-wrapper.js";
+        script.onload = () => {
+          console.log("SCORM API script loaded");
+          console.log("SCORM object on window:", window.SCORM); // Debugging line
+          resolve();
+        };
+        script.onerror = (error) => {
+          console.error("Error loading SCORM API script:", error);
+          reject(error);
+        };
+        document.body.appendChild(script);
+      });
     };
 
-    if (iframeRef.current) {
-      iframeRef.current.addEventListener("load", handleLoad);
-    }
+    const initializeScorm = async () => {
+      try {
+        await loadScormScript();
 
+        // Ensure SCORM functions are available
+        if (window.SCORM) {
+          const { initialize, terminate, setValue, getValue, commit } =
+            window.SCORM;
+
+          if (initialize()) {
+            console.log("SCORM initialized successfully");
+            setValue("cmi.core.lesson_status", "incomplete");
+            commit();
+            const lessonStatus = getValue("cmi.core.lesson_status");
+            console.log("Lesson Status:", lessonStatus);
+          } else {
+            console.error("Failed to initialize SCORM");
+          }
+
+          // Terminate SCORM on component unmount
+          return () => {
+            terminate();
+          };
+        } else {
+          console.error("SCORM API not found on window");
+        }
+      } catch (error) {
+        console.error("Error initializing SCORM:", error);
+      }
+    };
+
+    initializeScorm();
+
+    // Clean up
     return () => {
-      if (iframeRef.current) {
-        iframeRef.current.removeEventListener("load", handleLoad);
+      if (window.SCORM) {
+        const { terminate } = window.SCORM;
+        terminate();
       }
     };
   }, [fileUrl]);

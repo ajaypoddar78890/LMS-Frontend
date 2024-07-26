@@ -5,6 +5,8 @@ const FormUpload = () => {
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploading, setUploading] = useState(false);
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -18,9 +20,11 @@ const FormUpload = () => {
     }
 
     const formData = new FormData();
-    formData.append("file", file); // Ensure this name matches what the backend expects
+    formData.append("file", file);
     formData.append("title", title);
     formData.append("description", description);
+
+    setUploading(true);
 
     try {
       const response = await axios.post(
@@ -29,6 +33,12 @@ const FormUpload = () => {
         {
           headers: {
             "Content-Type": "multipart/form-data",
+          },
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            setUploadProgress(percentCompleted);
           },
         }
       );
@@ -39,6 +49,9 @@ const FormUpload = () => {
     } catch (error) {
       console.error("Error uploading file:", error);
       alert("Error uploading file");
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -97,8 +110,9 @@ const FormUpload = () => {
         <button
           type="submit"
           className="w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600"
+          disabled={uploading}
         >
-          Submit
+          {uploading ? `Uploading... ${uploadProgress}%` : "Submit"}
         </button>
       </form>
     </div>
