@@ -31,10 +31,9 @@ const FileViewer = () => {
     const loadScormScript = () => {
       return new Promise((resolve, reject) => {
         const script = document.createElement("script");
-        script.src = "/scorm-api-wrapper.js";
+        script.src = "http://localhost:5500/scorm-api-wrapper.js"; // Ensure this URL is correct
         script.onload = () => {
           console.log("SCORM API script loaded");
-          console.log("SCORM object on window:", window.SCORM); // Debugging line
           resolve();
         };
         script.onerror = (error) => {
@@ -49,25 +48,41 @@ const FileViewer = () => {
       try {
         await loadScormScript();
 
-        // Ensure SCORM functions are available
-        if (window.SCORM) {
-          const { initialize, terminate, setValue, getValue, commit } =
-            window.SCORM;
+        // Check if the SCORM API is available
+        const scormAPI = window.SCORM;
+        if (scormAPI) {
+          const { initialize, terminate, setValue, getValue, commit } = scormAPI;
 
           if (initialize()) {
             console.log("SCORM initialized successfully");
             setValue("cmi.core.lesson_status", "incomplete");
             commit();
+
             const lessonStatus = getValue("cmi.core.lesson_status");
             console.log("Lesson Status:", lessonStatus);
+
+            window.addEventListener("message", (event) => {
+              if (event.data.type === "scorm") {
+                axios
+                  .post(
+                    "http://localhost:5500/scorm-api/save-data",
+                    event.data.payload
+                  )
+                  .then((response) => {
+                    console.log("SCORM data saved:", response.data);
+                  })
+                  .catch((error) => {
+                    console.error("Error saving SCORM data:", error);
+                  });
+              }
+            });
+
+            return () => {
+              terminate();
+            };
           } else {
             console.error("Failed to initialize SCORM");
           }
-
-          // Terminate SCORM on component unmount
-          return () => {
-            terminate();
-          };
         } else {
           console.error("SCORM API not found on window");
         }
@@ -76,13 +91,14 @@ const FileViewer = () => {
       }
     };
 
-    initializeScorm();
+    if (fileUrl) {
+      initializeScorm();
+    }
 
-    // Clean up
     return () => {
-      if (window.SCORM) {
-        const { terminate } = window.SCORM;
-        terminate();
+      const scormAPI = window.SCORM;
+      if (scormAPI) {
+        scormAPI.terminate();
       }
     };
   }, [fileUrl]);
