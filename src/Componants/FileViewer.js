@@ -127,7 +127,6 @@ import axios from "axios";
 
 const FileViewer = () => {
   const [fileUrl, setFileUrl] = useState("");
-
   const iframeRef = useRef(null);
 
   // Fetch course data and set the file URL
@@ -156,7 +155,7 @@ const FileViewer = () => {
     const loadScormScript = () => {
       return new Promise((resolve, reject) => {
         const script = document.createElement("script");
-        script.src = "/scorm-api-wrapper.js"; // Correct path to your script
+        script.src = "/scorm-api-wrapper.js"; // Ensure this path is correct
         script.onload = () => {
           console.log("SCORM API script loaded");
           resolve();
@@ -182,18 +181,22 @@ const FileViewer = () => {
             LMSFinish,
           } = window.SCORM;
 
-          if (LMSInitialize("")) {
-            console.log("SCORM initialized successfully");
+          // Initialization
+          console.log("Initializing SCORM...");
+          const initResult = LMSInitialize("");
+          if (initResult === "true") {
+            console.log("SCORM Initialized Successfully");
             LMSSetValue("cmi.core.lesson_status", "incomplete");
             LMSCommit("");
 
+            // Check lesson status
             const lessonStatus = LMSGetValue("cmi.core.lesson_status");
             console.log("Lesson Status:", lessonStatus);
 
+            // Handle post messages from iframe
             const handleMessage = (event) => {
               if (event.data.type === "scorm") {
-                console.log("Received SCORM data:", event.data.payload); // Debug: Log received SCORM data
-                // Send SCORM data to the backend
+                console.log("Received SCORM data:", event.data.payload);
                 sendScormData(event.data.payload);
               }
             };
@@ -202,13 +205,12 @@ const FileViewer = () => {
 
             // Cleanup on component unmount
             return () => {
+              console.log("Terminating SCORM...");
               window.removeEventListener("message", handleMessage);
-              if (window.SCORM) {
-                LMSFinish("");
-              }
+              LMSFinish("");
             };
           } else {
-            console.error("Failed to initialize SCORM");
+            console.error("SCORM Initialization Failed");
           }
         } else {
           console.error("SCORM API not found on window");
@@ -223,7 +225,7 @@ const FileViewer = () => {
     }
   }, [fileUrl]);
 
-  // Function to send SCORM data
+  // Function to send SCORM data to the backend
   const sendScormData = async (data) => {
     try {
       if (
@@ -234,11 +236,11 @@ const FileViewer = () => {
         console.error("Invalid SCORM data:", data);
         return;
       }
+      console.log("Sending SCORM data:", data);
       const response = await axios.post(
         "http://localhost:5500/scormapi/savedata",
         data
       );
-      console.log("Sending SCORM data:", data); // Debug: Log SCORM data
       console.log("SCORM data saved:", response.data);
     } catch (error) {
       console.error("Error saving SCORM data:", error);
@@ -255,6 +257,8 @@ const FileViewer = () => {
           width="600"
           height="400"
           title="SCORM Content"
+          allow="fullscreen; autoplay; encrypted-media; same-origin; scripts; popups"
+          sandbox="allow-same-origin allow-scripts allow-forms allow-modals allow-popups"
         ></iframe>
       ) : (
         <p>Loading...</p>
