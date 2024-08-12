@@ -257,8 +257,7 @@ const FileViewer = () => {
           width="600"
           height="400"
           title="SCORM Content"
-          allow="fullscreen; autoplay; encrypted-media; same-origin; scripts; popups"
-          sandbox="allow-same-origin allow-scripts allow-forms allow-modals allow-popups"
+          allow="fullscreen; autoplay; encrypted-media"
         ></iframe>
       ) : (
         <p>Loading...</p>
