@@ -122,27 +122,21 @@
 // };
 
 // export default FileViewer;
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 
 const FileViewer = () => {
   const [fileUrl, setFileUrl] = useState("");
-  const iframeRef = useRef(null);
 
-  // Fetch course data and set the file URL
   useEffect(() => {
     axios
       .get("http://localhost:5500/api/courses")
       .then((response) => {
         if (response.data && response.data.length > 0) {
           const course = response.data[0];
-          if (course.videoUrl) {
-            setFileUrl(`http://localhost:5500${course.videoUrl}`);
-          } else {
-            console.error("videoUrl is not defined in the course data");
-          }
+          setFileUrl(`http://localhost:5500${course.videoUrl}`);
         } else {
-          console.error("No courses found in the response");
+          console.error("No courses found");
         }
       })
       .catch((error) => {
@@ -150,117 +144,20 @@ const FileViewer = () => {
       });
   }, []);
 
-  // Load SCORM API script and initialize SCORM
-  useEffect(() => {
-    const loadScormScript = () => {
-      return new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = "/scorm-api-wrapper.js"; // Ensure this path is correct
-        script.onload = () => {
-          console.log("SCORM API script loaded");
-          resolve();
-        };
-        script.onerror = (error) => {
-          console.error("Error loading SCORM API script:", error);
-          reject(error);
-        };
-        document.body.appendChild(script);
-      });
-    };
-
-    const initializeScorm = async () => {
-      try {
-        await loadScormScript();
-
-        if (window.SCORM) {
-          const {
-            LMSInitialize,
-            LMSSetValue,
-            LMSGetValue,
-            LMSCommit,
-            LMSFinish,
-          } = window.SCORM;
-
-          // Initialization
-          console.log("Initializing SCORM...");
-          const initResult = LMSInitialize("");
-          if (initResult === "true") {
-            console.log("SCORM Initialized Successfully");
-            LMSSetValue("cmi.core.lesson_status", "incomplete");
-            LMSCommit("");
-
-            // Check lesson status
-            const lessonStatus = LMSGetValue("cmi.core.lesson_status");
-            console.log("Lesson Status:", lessonStatus);
-
-            // Handle post messages from iframe
-            const handleMessage = (event) => {
-              if (event.data.type === "scorm") {
-                console.log("Received SCORM data:", event.data.payload);
-                sendScormData(event.data.payload);
-              }
-            };
-
-            window.addEventListener("message", handleMessage);
-
-            // Cleanup on component unmount
-            return () => {
-              console.log("Terminating SCORM...");
-              window.removeEventListener("message", handleMessage);
-              LMSFinish("");
-            };
-          } else {
-            console.error("SCORM Initialization Failed");
-          }
-        } else {
-          console.error("SCORM API not found on window");
-        }
-      } catch (error) {
-        console.error("Error initializing SCORM:", error);
-      }
-    };
-
-    if (fileUrl) {
-      initializeScorm();
-    }
-  }, [fileUrl]);
-
-  // Function to send SCORM data to the backend
-  const sendScormData = async (data) => {
-    try {
-      if (
-        !data ||
-        typeof data.key === "undefined" ||
-        typeof data.value === "undefined"
-      ) {
-        console.error("Invalid SCORM data:", data);
-        return;
-      }
-      console.log("Sending SCORM data:", data);
-      const response = await axios.post(
-        "http://localhost:5500/scormapi/savedata",
-        data
-      );
-      console.log("SCORM data saved:", response.data);
-    } catch (error) {
-      console.error("Error saving SCORM data:", error);
-    }
-  };
-
   return (
     <div>
-      <h1>Here is the iframe for playing the SCORM content</h1>
+      <h1>Course Content</h1>
       {fileUrl ? (
         <iframe
-          ref={iframeRef}
           src={fileUrl}
-          width="600"
-          height="400"
-          title="SCORM Content"
-          allow="fullscreen; autoplay; encrypted-media"
+          width="100%"
+          height="600px"
+          title="Course Content"
+          allowFullScreen
+          onLoad={() => console.log("Content loaded")}
         ></iframe>
       ) : (
-        <p>Loading...</p>
+        <p>Loading content...</p>
       )}
     </div>
   );
